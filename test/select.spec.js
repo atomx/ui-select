@@ -173,15 +173,23 @@ describe('ui-select tests', function() {
     e.keyCode = keyCode;
     element.trigger(e);
   }
-  function triggerPaste(element, text) {
+  function triggerPaste(element, text, isClipboardEvent) {
     var e = jQuery.Event("paste");
-    e.originalEvent = {
+    if (isClipboardEvent) {
+      e.clipboardData = {
+        getData : function() {
+            return text;
+        }
+      };
+    } else {
+      e.originalEvent = {
         clipboardData : {
             getData : function() {
                 return text;
             }
         }
-    };
+      };
+    }
     element.trigger(e);
   }
 
@@ -2063,20 +2071,39 @@ describe('ui-select tests', function() {
     });
 
     it('should allow paste tag from clipboard', function() {
-       scope.taggingFunc = function (name) {
-         return {
-           name: name,
-           email: name + '@email.com',
-           group: 'Foo',
-           age: 12
-         };
-       };
+      scope.taggingFunc = function (name) {
+        return {
+          name: name,
+          email: name + '@email.com',
+          group: 'Foo',
+          age: 12
+        };
+      };
 
-       var el = createUiSelectMultiple({tagging: 'taggingFunc', taggingTokens: ",|ENTER"});
-       clickMatch(el);
-       triggerPaste(el.find('input'), 'tag1');
+      var el = createUiSelectMultiple({tagging: 'taggingFunc', taggingTokens: ",|ENTER"});
+      clickMatch(el);
+      triggerPaste(el.find('input'), 'tag1');
 
-       expect($(el).scope().$select.selected.length).toBe(1);
+      expect($(el).scope().$select.selected.length).toBe(1);
+      expect($(el).scope().$select.selected[0].name).toBe('tag1');
+    });
+
+    it('should allow paste tag from clipboard for generic ClipboardEvent', function() {
+      scope.taggingFunc = function (name) {
+        return {
+          name: name,
+          email: name + '@email.com',
+          group: 'Foo',
+          age: 12
+        };
+      };
+
+      var el = createUiSelectMultiple({tagging: 'taggingFunc', taggingTokens: ",|ENTER"});
+      clickMatch(el);
+      triggerPaste(el.find('input'), 'tag1', true);
+
+      expect($(el).scope().$select.selected.length).toBe(1);
+      expect($(el).scope().$select.selected[0].name).toBe('tag1');
     });
 
     it('should allow paste multiple tags', function() {
@@ -2092,6 +2119,23 @@ describe('ui-select tests', function() {
       var el = createUiSelectMultiple({tagging: 'taggingFunc', taggingTokens: ",|ENTER"});
       clickMatch(el);
       triggerPaste(el.find('input'), ',tag1,tag2,tag3,,tag5,');
+
+      expect($(el).scope().$select.selected.length).toBe(5);
+    });
+
+    it('should allow paste multiple tags with generic ClipboardEvent', function() {
+      scope.taggingFunc = function (name) {
+        return {
+          name: name,
+          email: name + '@email.com',
+          group: 'Foo',
+          age: 12
+        };
+      };
+
+      var el = createUiSelectMultiple({tagging: 'taggingFunc', taggingTokens: ",|ENTER"});
+      clickMatch(el);
+      triggerPaste(el.find('input'), ',tag1,tag2,tag3,,tag5,', true);
 
       expect($(el).scope().$select.selected.length).toBe(5);
     });
@@ -2251,6 +2295,35 @@ describe('ui-select tests', function() {
       expect(el.css('top')).toBe(originalTop);
       expect(el.css('left')).toBe(originalLeft);
       expect(el.css('width')).toBe(originalWidth);
+    });
+  });
+
+  describe('highlight filter', function() {
+    var highlight;
+
+    beforeEach(function() {
+      highlight = $injector.get('highlightFilter');
+    });
+
+    it('returns the item if there is no match', function() {
+      var query = 'January';
+      var item = 'December';
+
+      expect(highlight(item, query)).toBe('December');
+    });
+
+    it('wraps search strings matches in ui-select-highlight class', function() {
+      var query = 'er';
+      var item = 'December';
+
+      expect(highlight(item, query)).toBe('Decemb<span class="ui-select-highlight">er</span>');
+    });
+
+    it('properly highlights numeric items', function() {
+      var query = '15';
+      var item = 2015;
+
+      expect(highlight(item, query)).toBe('20<span class="ui-select-highlight">15</span>');
     });
   });
 
